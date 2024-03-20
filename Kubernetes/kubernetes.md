@@ -182,6 +182,45 @@ Kinds of Controllers :
         - External - endpoint available through node ip : port 
         - Load balancer  - expose your application to the public internet.
 
+**Exposing pods within the cluster**
+Job of a service is to make pods more easily accessible inside the cluster network.
+You can create a new service using `kubectl expose deployment my-deployment --type=NodePort --port=8080 --target-port=80` command, so it would forward traffic to pods from port 8080 to 80.
+
+You can also create service through yaml file, and one important thing to note is :
+    
+    selector: 
+        app: blue-green
+
+For the service to know, which pods should it forward the traffic to...
+the selectors and labels come in...
+So a pod which would want service to forward traffic to it, would have blue-green as label
+    
+    metadata:
+        name:green
+        label:
+            app:blue-green
+
+**Exposing pods to the outside world**
+In your service yaml file, 
+    
+    specs:
+        type: ClusterIP
+
+this will, make the pods accessible within your cluster, but if you change this type to NodePort you will be able to expose it to the outside world.
+
+    specs:
+        type: NodePort
+
+**Ingress in kubernetes**
+It is the Application layer API object, that manages external access to services within a cluster. In other words, it operates at the application layer of the OSI model. 
+
+It defines rules for routing HTTP and HTTPs traffic from outside the cluster to services within the cluster. It allows you to expose HTTP and HTTPS routes from outside the cluster to services withing the cluster. 
+
+Even with load balancer service, we end up with one IP address per service and any traffic that hits that IP, gets forwarded directly on the pods of the service.
+
+Ingress is a resource type. Kind = Ingress
+
+
 ### Labels, selectors and namespaces 
 
 `Labels` : Labels are key/value pairs that are attached to objects like pods, services, and deployments. Lables are users of Kubernetes to identify attributes for objects. 
@@ -244,67 +283,79 @@ So, you need to create yaml files which contains deployment, service, jobs etc a
 
 You can upgrade the image via this command 
 
-`kubectl set image deployment/my-deployment my-container=my-image:new-version`
+    kubectl set image deployment/my-deployment my-container=my-image:new-version
 
 To check deployment history:
-`kubectl rollout history deployment/actionlib`
+    
+    kubectl rollout history deployment/actionlib
 
 To revert : 
-`kubectl rollout undo deployment/my-deployment --to-revision=version`
+    
+    kubectl rollout undo deployment/my-deployment --to-revision=version
 
 ### To debug issues
 
 To describe pods :
-`kubectl describe pod pod-name`
+    
+    kubectl describe pod pod-name
 
 To check logs for a particular pod : 
-`kubectl logs pod-name`
+    
+    kubectl logs pod-name
 
 To check logs of previous pod :
-`kubectl logs pod-name -p`
+    
+    kubectl logs pod-name -p
 
 To go inside a pod : 
-`kubectl exec -it pod-name sh or /bin/bash`
+    
+    kubectl exec -it pod-name sh or /bin/bash
 
 
 ### Dealing with configuration data
 
 We can configure values, env variables at deploy time via configMap
-`kubectl create configmap logger --from-literal=log_level=debug`
+    
+    kubectl create configmap logger --from-literal=log_level=debug
 
 it would look something like this in yaml 
-env : 
-    - name: log_level
-      valueFrom:
-        configMapKeyRef:
-            name: logger
-            key: log_level
+
+    env : 
+        - name: log_level
+            valueFrom:
+                configMapKeyRef:
+                    name: logger
+                    key: log_level  
 
 ### Kubernetes secrets 
 
-`kubectl create secret generic my-secret --from-literal=username=my-username --from-literal=password=mypassword`
+To create Kubernetes secrets :
+
+    kubectl create secret generic my-secret --from-literal=username=my-username --from-literal=password=mypassword
 
 you can also create secrets from files or yamls.
 These values are base64 encoded 
 
 How to use it in deployment : 
 
-env :
-    - name: api-key
-        valueFrom:
-            secretKeyRef:
-                name: api-key
-                key: api-key
+    env :
+        - name: api-key
+            valueFrom:
+                secretKeyRef:
+                    name: api-key
+                    key: api-key
 
 
 
 ### jobs in kubernetes 
 
 To create a job:
-`kubectl apply -f job.yaml`
+    
+    kubectl apply -f job.yaml
 
 To get jobs :
-`kubectl get jobs | grep jobName`
+    
+    kubectl get jobs | grep jobName
 
 To stop a cronjob, just edit the job and make suspendStatus = true
 
@@ -339,8 +390,13 @@ Usecases :
 - customer partitioning for non-multi-tenant scenarios
 - application partitioning
 
-`kubectl get namespaces`
-`kubectl -n namespacename get pods`
+To get namespaces: 
+    
+    kubectl get namespaces
+
+To get pods in a particular namespace
+    
+    kubectl -n namespacename get pods
 
 ### Monitoring and logging 
 
@@ -383,9 +439,10 @@ Popular Authorization Modules
 - Webhook
 
 eg of ABAC: 
-All access : 
-"apiVersion" : "abac.authorization.kubernetes.io/v1beta1", "kind":"Policy", "spec" : {"user" : "chaitu", "namespace":"\*", "resource":"\*", "apiGroup" :"\*"}
+    
+    All access : 
+    "apiVersion" : "abac.authorization.kubernetes.io/v1beta1", "kind":"Policy", "spec" : {"user" : "chaitu", "namespace":"\*", "resource":"\*", "apiGroup" :"\*"}
 
-Read access : 
-"apiVersion" : "abac.authorization.kubernetes.io/v1beta1", "kind":"Policy", "spec" : {"user" : "chaitu", "namespace":"\*", "resource":"\*", "apiGroup" :"\*", "readonly":true}
+    Read access : 
+    "apiVersion" : "abac.authorization.kubernetes.io/v1beta1", "kind":"Policy", "spec" : {"user" : "chaitu", "namespace":"\*", "resource":"\*", "apiGroup" :"\*", "readonly":true}
 
