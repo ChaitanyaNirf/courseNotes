@@ -344,6 +344,10 @@ To go inside a pod :
     
     kubectl exec -it pod-name sh or /bin/bash
 
+Sometimes, you won't be able to go inside the pods as the image would not have a base image. In that cause, you can use external plugin which would attach side car to the pod and then you can go inside the pod. It's name is kubectl debug plugin.
+
+Another interesting plugin for kubectl is kubectl sniff, which lets you to capture and inspect network traffic to and from pods within your kubernetes cluster. It provides a convenient way to troubleshoot network related issues, analyze communication patterns, and monitor traffic flows between services. 
+
 ---
 
 ### Dealing with configuration data
@@ -476,11 +480,15 @@ To get jobs :
 
 To stop a cronjob, just edit the job and make suspendStatus = true
 
+---
+
 ### Daemon sets in kubernetes 
 
 Daemon set is a type of controller object that ensures that a copy of a specific pod runs on each node in the cluster. Unlike other controllers such as deployments or replicasets which ensure a specified number of replicas running in the cluster. Daemon sets are used when you need exactly one instance of a pod to run on each node in your cluster,
 
 They are generally used for logging, monitoring, networking or loadbalancing etc
+
+---
 
 ### Stateful set in kubernetes 
 
@@ -496,6 +504,12 @@ To explain in short, it is used to deploy containerized mysql, postgresql or kaf
 you can use kubeadm 
 or kops for aws 
 
+**Helm**
+Helm is a package manager for Kubernetes applications. It simplifies the process of deploying, managing, and upgrading complex Kubernetes applications by providing a way to define, install, and upgrade sets of Kubernetes resources through configurable templates called charts.
+
+With Helm, you provide parameters and values to customize your application's configuration, and Helm generates Kubernetes YAML manifests based on your chart templates and the provided values. These generated YAML manifests can then be directly applied to your Kubernetes cluster using the kubectl apply command.
+
+---
 
 ### Namespaces in kubernetes 
 
@@ -507,6 +521,14 @@ Usecases :
 - customer partitioning for non-multi-tenant scenarios
 - application partitioning
 
+To create namespaces:
+
+    kubectl create namespace namespaceName
+
+To switch to a particular namespace:
+
+    kubectl config set-context --current --namespace=namespaceName
+
 To get namespaces: 
     
     kubectl get namespaces
@@ -514,6 +536,8 @@ To get namespaces:
 To get pods in a particular namespace
     
     kubectl -n namespacename get pods
+
+---
 
 ### Monitoring and logging 
 
@@ -530,6 +554,15 @@ Kubernetes will automatically pick up the logs and show you anything in the log 
 Once your application is running in staging or production, you might consider using a logging platform like kibana with elasticSearch with logs being shippped to them from pods using fluentd or filebeat (logstash), to provide more robust search and analytics functionality.
 
 Basic architecture: logshipper will collect logs from kubernetes and ship them to elastic search which is an analytics tool, and then kibana comes in for visualization and analysis.
+
+**Side Cars**
+In Kubernetes, a sidecar is a design pattern where an additional container is deployed alongside a primary container within the same pod. The sidecar container runs alongside the main application container and provides supporting or complementary functionality. This pattern allows for better modularization of functionality and encapsulation of related processes within a single unit.
+
+When you do, `kubectl get pods` you will see in READY (2/2) this is when there is more than one container. 
+
+They are used for logging, monitoring, data synchronization, security etc
+
+---
 
 ### Authentication and Authorization 
 As well as the worker nodes, which are the Vms that our pods have been running on. Kubernetes has it's own control plane. This is the collection of software that orchestrates everything. Control plane is always available to all the pods in the cluster via a built in service called Kubernetes. By default all pods can talk to the control plane but they have no permission to do anything. They can't create or delete pods or do anything else. 
@@ -594,6 +627,10 @@ eg of ABAC:
     Read access : 
     "apiVersion" : "abac.authorization.kubernetes.io/v1beta1", "kind":"Policy", "spec" : {"user" : "chaitu", "namespace":"\*", "resource":"\*", "apiGroup" :"\*", "readonly":true}
 
+---
+
 Some key points: 
 - Kubernetes also helps avoid the noisy neighbour problem, by providng all the pods enough resources to run. you can specify the resource usage/request limits in kubernetes. When the pod uses more cpu/memory, it kill the pod and it restarts.
+- `kubectl api-resources`
+- `kubectl explain resourceKind`
 
