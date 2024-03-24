@@ -72,6 +72,10 @@ Orchestrator features
 - Max of 100 pods per node
 - Pods can be horizontally scaled via an API
 
+**HPA - Horizontol Pod Autoscaler** : It's a type of resource, it is horizontally scaling means it makes more copies.
+You can set minReplicas and maxReplicas. You can watch the cpu and the targeted cpu utilization, eg if cpu utilization of a pod goes beyond 80 I want more pods, and it will create more pods. It also scales down the deployment when the cpu utilization goes down. 
+cpu utilization is just for example, we can also scale on memory usage or other things. 
+
 3. Flexibility and Modularization
 - Plug and play architecture
 - Extend architecture when needed
@@ -147,6 +151,8 @@ Then we have `etcd` which is a distributed key value store. Kubernetes uses etcd
 - Docker 
 Worker nodes are exposed to the internet via load balancer. 
 
+---
+
 ### Basic building blocks : Pods
 
 `Pod` : It is the simplest unit that you can interact with. You can create, deploy, and delete pods, and it represents one running process on your cluster. 
@@ -162,6 +168,8 @@ States:
 - Succeeded (all containers in the pod have exited with exit status of 0)
 - Failed (atleast one container has returned a non-zero exit status)
 - CrashLoopBackOff (In this container fails to starts for some reason, and Kubernetes tries over and over to restart the pod)
+
+---
 
 ### Deployments, jobs, and services: 
 
@@ -220,6 +228,19 @@ Even with load balancer service, we end up with one IP address per service and a
 
 Ingress is a resource type. Kind = Ingress
 
+**POD Affinity and Anti-Affinity**
+When a pod is being scheduled, how does that scheduling decision gets affected by affinity or anti-affinity. 
+
+Affinity: It means, the pods should be as close as possible. Maybe on the same worker node. 
+ 
+Anti-Affinity: It means, the pods should be as far as possible. On the different worker node or different zones. This is generally used for high Availability, so even if one pod crashes if a worker node crashes, the other pod would still be up and running. 
+
+**Node Affinity and Anti-Affinity**
+Node Affinity: It allows you to specify rules for scheduling pods onto nodes based on labels assigned to nodes. With node affinity, you can define conditions that pods prefer to be scheduled on nodes with specific labels or node attributes. For example you might want to ensure that pods with high compute requirements are scheduled only on nodes with GPUs. 
+
+Node Anti Affinity: Node Anti-affinity allows you to specify rules that prevent pods from being schedules onto nodes with specific lables or attributes. This can be helpful for enhancing fault tolerance and spreading workloads across different nodes.
+
+---
 
 ### Labels, selectors and namespaces 
 
@@ -245,6 +266,8 @@ eg : `"release" : "stable", "release" : "canary"`
 - There is a "Default" namespace created when you launch kubernetes.
 - Newer applications install their resources in a different namespace so they don't interfere with your existing cluster and cause confusion. 
 
+---
+
 ### kubelet and kube proxy
 
 `kubelet` :
@@ -269,6 +292,8 @@ eg : `"release" : "stable", "release" : "canary"`
 - For each new service, kube-proxy opens a randomly chosen port on the local node. 
 - Connections made to the chosen port are proxied to one of the corresponding back-end pods.
 
+---
+
 ### Production ready 
 
 So, you need to create yaml files which contains deployment, service, jobs etc and then you do 
@@ -279,11 +304,18 @@ So, you need to create yaml files which contains deployment, service, jobs etc a
 - livenessProbe checks whether the container is alive and running ( you can have some sort of heartbeat API inside your application, which it would hit and check the status)
  you also set a failure threshold, that is that many heartbeats can be skipped before it crashes...and eventually goes into crashloopbackOff.
 
+---
+
 ### Handling Application upgrades and rollback
 
 You can upgrade the image via this command 
 
     kubectl set image deployment/my-deployment my-container=my-image:new-version
+
+
+So what kubernetes actually does is, it doesn't created all the new pods or terminate the existing pods. 
+It one by one creates a new pod and terminates the old one. If let's say there are 10 new pods, it would create a pod and terminate the old one..and this would go on for 10 times.
+It's not necessarily one, it depends on various factors like deployment strategies, pod replica count, resource constraints etc
 
 To check deployment history:
     
@@ -292,6 +324,7 @@ To check deployment history:
 To revert : 
     
     kubectl rollout undo deployment/my-deployment --to-revision=version
+---
 
 ### To debug issues
 
@@ -311,14 +344,50 @@ To go inside a pod :
     
     kubectl exec -it pod-name sh or /bin/bash
 
+---
 
 ### Dealing with configuration data
 
-We can configure values, env variables at deploy time via configMap
+In kubernetes, you can mount a configMap into a pod. when you do that, you have the option to choose how you want to expose the configMap's data to the containers within the pod. As files or as environment variables. Here's how you can choose between the two options. 
+
+To mount as files: 
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+    name: mypod
+    spec:
+    containers:
+    - name: mycontainer
+        image: nginx
+        volumeMounts:
+        - name: config-volume
+        mountPath: /etc/config
+    volumes:
+    - name: config-volume
+        configMap:
+        name: my-configmap
+
+To expose as env variables" 
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+    name: mypod
+    spec:
+    containers:
+    - name: mycontainer
+        image: nginx
+        envFrom:
+        - configMapRef:
+            name: my-configmap
+
+
+We can also configure values, env variables at deploy time via configMap
     
     kubectl create configmap logger --from-literal=log_level=debug
 
-it would look something like this in yaml 
+it would look something like this in yaml if you want to give value to a key called log_level from configMap 
 
     env : 
         - name: log_level
@@ -326,6 +395,7 @@ it would look something like this in yaml
                 configMapKeyRef:
                     name: logger
                     key: log_level  
+---
 
 ### Kubernetes secrets 
 
@@ -346,8 +416,55 @@ How to use it in deployment :
                     key: api-key
 
 
+Types of secrets : 
+- Generic 
+- TLS : this type of secret will only let you use certain keys (tls.key - private key, tls.crt - certificate, ca.crt - ca certificate and it also validates the data for these keys)
+
+--- 
+
+### Network policies in Kubernetes - *Part of CKAD exam*
+- Network policies let you put firewalls up in your cluster. They stop some pods talking to some other pods. Actually they it's a whitelisting mechanism and they allow some pods to talk to some other pods. 
+- Network policies is an opt-in feature, so as soon as you make even one, you've opted in to network policy. When you turn it on, all traffic is denied by default. And you can then add more network policies to add more exceptions to allow just the traffic flow that you want. 
+
+Default yaml for network policy: 
+
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: deny-all
+    spec:
+      podSelector: {}
+      policyTypes:
+        - Ingress
+
+This will block all the traffic as there is nothing in podSelector.
+
+If you want to allow traffic from pods which has label `shell` to pods having label `blue`, modify it like below yaml. Blue listens on port 8080 and we allow shell to talk to blue on port 8080.
+
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+    name: deny-all
+    spec:
+    podSelector:
+        matchLabels:
+        colour: blue
+        policyTypes:
+        - Ingress:
+            - from:
+                - podSelector:
+                    matchLabels: app:shell
+                ports:
+                - protocol: TCP
+                    port: 8080
+
 
 ### jobs in kubernetes 
+
+Types of jobs: 
+- cron job : It runs the tasks periodically. It has extra spec, `schedule` and has one more field called `restartPolicy`.
+- job : just does one thing and quits 
+
 
 To create a job:
     
@@ -415,6 +532,37 @@ Once your application is running in staging or production, you might consider us
 Basic architecture: logshipper will collect logs from kubernetes and ship them to elastic search which is an analytics tool, and then kibana comes in for visualization and analysis.
 
 ### Authentication and Authorization 
+As well as the worker nodes, which are the Vms that our pods have been running on. Kubernetes has it's own control plane. This is the collection of software that orchestrates everything. Control plane is always available to all the pods in the cluster via a built in service called Kubernetes. By default all pods can talk to the control plane but they have no permission to do anything. They can't create or delete pods or do anything else. 
+
+Granting pods access is a two step process: 
+1. First step is to give the pod a user identitiy separate from the other pods. So all pods run as a user, a machine user called a service account. There's a service account that always exists called default. And unless you specify otherwise, all pods run as this service account called default. We can give the permissions to this service account but that would mean all the pods in the cluster would get this permission. So, it's better to make our own service account. 
+
+It's definition is like this:
+
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata: 
+      name: (anyName) eg: envbin
+
+and in the pod definition, you have to add this under spec otherwise it would take default serviceAccount
+
+    spec: 
+      serviceAccount: envbin (Name of your serviceAccount)
+
+2. Giving permissions to the serviceAcccount 
+
+it's definition 
+
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      name: pod-reader / node-reader (any name)
+    rules:
+    - apiGroups: [""] # "" indicates the core API group
+      resources: ["pods"] # here it could be pods or nodes 
+      verbs: ["get", "watch","list"] # it can get watch and list pods but we are not giving them permission to create/ delete
+
+
 Two kinds of users 
 - normal users : Humans interacting with the system
 - service accounts : Accounts managed by the K8s API
@@ -445,4 +593,7 @@ eg of ABAC:
 
     Read access : 
     "apiVersion" : "abac.authorization.kubernetes.io/v1beta1", "kind":"Policy", "spec" : {"user" : "chaitu", "namespace":"\*", "resource":"\*", "apiGroup" :"\*", "readonly":true}
+
+Some key points: 
+- Kubernetes also helps avoid the noisy neighbour problem, by providng all the pods enough resources to run. you can specify the resource usage/request limits in kubernetes. When the pod uses more cpu/memory, it kill the pod and it restarts.
 
